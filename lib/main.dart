@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:location/location.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 
 const String yieldBoxName = 'yield_data';
 
@@ -42,13 +44,14 @@ class _YieldEstimatorPageState extends State<YieldEstimatorPage> {
   final _formKey = GlobalKey<FormState>();
   final _treeCountController = TextEditingController();
   final _podCountController = TextEditingController();
-  final _sampledTreesController = TextEditingController();
   final _certifiedAreaController = TextEditingController();
   final _lastYearProductionController = TextEditingController();
   final _idNumberController = TextEditingController();
   final _officerController = TextEditingController();
   final _locationController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
+  String _gpsLocation = 'Not set';
+
 
   Map<String, bool> _conditions = {
     'Little or no pruning': false,
@@ -63,22 +66,60 @@ class _YieldEstimatorPageState extends State<YieldEstimatorPage> {
   double _adjustmentFactor() {
     return _conditions.values.where((v) => v).length * 0.05;
   }
+  void _resetFields() {
+    _idNumberController.clear();
+    _officerController.clear();
+    _locationController.clear();
+    _certifiedAreaController.clear();
+    _lastYearProductionController.clear();
+    _treeCountController.clear();
+    _podCountController.clear();
+    _selectedDate = DateTime.now();
+    _gpsLocation = 'Not set';
+    _conditions.updateAll((key, value) => false);
+  }
+
+
+  Future<void> _fetchLocation() async {
+    final permission = await Permission.location.request();
+    if (permission.isGranted) {
+      Location location = Location();
+      bool serviceEnabled = await location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await location.requestService();
+        if (!serviceEnabled) {
+          setState(() => _gpsLocation = 'Location service disabled');
+          return;
+        }
+      }
+
+      final locData = await location.getLocation();
+      setState(() {
+        _gpsLocation = '${locData.latitude}, ${locData.longitude}';
+      });
+    } else {
+      setState(() => _gpsLocation = 'Location permission denied');
+    }
+  }
 
   void _calculateYield() {
     final int treesInSample = int.tryParse(_treeCountController.text) ?? 0;
     final int totalPods = int.tryParse(_podCountController.text) ?? 0;
-    final int sampledTrees = int.tryParse(_sampledTreesController.text) ?? 1;
+
     final double area = double.tryParse(_certifiedAreaController.text) ?? 1;
-    final double lastYearProduction = double.tryParse(_lastYearProductionController.text) ?? 0;
+    final double lastYearProduction = double.tryParse(
+        _lastYearProductionController.text) ?? 0;
     final String idNumber = _idNumberController.text.trim();
     final String officerName = _officerController.text.trim();
     final String location = _locationController.text.trim();
 
     final double treeDensity = treesInSample * 100;
-    final double podsPerTree = totalPods / sampledTrees;
+    final double podsPerTree = totalPods / treesInSample;
     final double beansPerTree = podsPerTree * 0.04;
+    final double adjustmentPercentage = _adjustmentFactor() * 100;
     final double rawYieldPerHectare = beansPerTree * treeDensity;
-    final double adjustedYieldPerHectare = rawYieldPerHectare * (1 - _adjustmentFactor());
+    final double adjustedYieldPerHectare = rawYieldPerHectare *
+        (1 - _adjustmentFactor());
     double estimatedVolume = adjustedYieldPerHectare * area;
 
     if (lastYearProduction > 0 && estimatedVolume > lastYearProduction * 1.3) {
@@ -91,28 +132,35 @@ class _YieldEstimatorPageState extends State<YieldEstimatorPage> {
       'location': location,
       'treesInSample': treesInSample,
       'totalPods': totalPods,
-      'sampledTrees': sampledTrees,
       'area': area,
       'treeDensity': treeDensity,
       'podsPerTree': podsPerTree,
       'yieldPerHa': adjustedYieldPerHectare,
       'volume': estimatedVolume,
+      'adjustmentPercentage': adjustmentPercentage,
       'lastYearProduction': lastYearProduction,
       'conditions': Map.from(_conditions),
       'timestamp': _selectedDate.toIso8601String(),
+      'gps': _gpsLocation,
+
     };
 
     Hive.box(yieldBoxName).add(record);
 
     setState(() {
       _result = '''Tree Density: ${treeDensity.toStringAsFixed(1)} trees/ha
-Pods per Tree: ${podsPerTree.toStringAsFixed(1)}
 Adjusted Yield/ha: ${adjustedYieldPerHectare.toStringAsFixed(2)} kg
 Estimated Volume: ${estimatedVolume.toStringAsFixed(2)} kg\nSaved Locally ✅''';
     });
+    Future.delayed(Duration(seconds: 1), () {
+      setState(() {
+        _resetFields();
+      });
+    });
   }
 
-  Widget buildCard(String title, Widget child) {
+
+    Widget buildCard(String title, Widget child) {
     return Card(
       elevation: 2,
       margin: EdgeInsets.symmetric(vertical: 10),
@@ -206,34 +254,41 @@ Estimated Volume: ${estimatedVolume.toStringAsFixed(2)} kg\nSaved Locally ✅'''
                 decoration: InputDecoration(hintText: 'Enter total pod count'),
               ),
             ),
-            buildCard("3. Number of productive trees sampled",
-              TextFormField(
-                controller: _sampledTreesController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(hintText: 'Enter sampled tree count'),
-              ),
-            ),
-            buildCard("4. Certified farm area (hectares)",
+            buildCard("3. Certified farm area (hectares)",
               TextFormField(
                 controller: _certifiedAreaController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(hintText: 'Enter area in hectares'),
               ),
             ),
-            buildCard("5. Cocoa produced last year (kg)",
+            buildCard("4. Cocoa produced last year (kg)",
               TextFormField(
                 controller: _lastYearProductionController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(hintText: "Enter previous year's production"),
               ),
             ),
-            buildCard("6. Local Conditions (tick if applicable)",
+            buildCard("5. Local Conditions (tick if applicable)",
               Column(
                 children: _conditions.keys.map((key) => CheckboxListTile(
                   title: Text(key),
                   value: _conditions[key],
                   onChanged: (val) => setState(() => _conditions[key] = val ?? false),
                 )).toList(),
+              ),
+            ),
+            buildCard(
+              "GPS Location",
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_gpsLocation),
+                  ElevatedButton.icon(
+                    icon: Icon(Icons.location_on),
+                    label: Text('Get Location'),
+                    onPressed: _fetchLocation,
+                  ),
+                ],
               ),
             ),
             ElevatedButton(
@@ -263,6 +318,27 @@ Estimated Volume: ${estimatedVolume.toStringAsFixed(2)} kg\nSaved Locally ✅'''
     );
   }
 }
+String generateCSV(List<Map<String, dynamic>> records) {
+  List<List<dynamic>> rows = [
+    ['ID', 'Officer', 'Location', 'Date', 'Yield/Ha', 'Volume', 'GPS','adjustmentPercentage']
+  ];
+
+  for (final record in records) {
+    rows.add([
+      record['idNumber'] ?? '',
+      record['officer'] ?? '',
+      record['location'] ?? '',
+      record['timestamp'] ?? '',
+      (record['yieldPerHa'] ?? 0).toStringAsFixed(2),
+      record['adjustmentPercentage']
+      (record['volume'] ?? 0).toStringAsFixed(2),
+      record['gps'] ?? '',
+    ]);
+  }
+
+  return const ListToCsvConverter().convert(rows);
+}
+
 class SavedRecordsPage extends StatefulWidget {
   @override
   _SavedRecordsPageState createState() => _SavedRecordsPageState();
@@ -294,7 +370,8 @@ class _SavedRecordsPageState extends State<SavedRecordsPage> {
 
   void exportCSV() async {
     List<List<dynamic>> rows = [
-      ['ID', 'Officer', 'Location', 'Date', 'Yield/Ha', 'Volume']
+      ['ID', 'Officer', 'Location', 'Date', 'Yield/Ha', 'Volume', 'GPS']
+
     ];
 
     for (int index in selectedIndices.isEmpty
@@ -308,6 +385,7 @@ class _SavedRecordsPageState extends State<SavedRecordsPage> {
         record['timestamp'] ?? '',
         (record['yieldPerHa'] ?? 0).toStringAsFixed(2),
         (record['volume'] ?? 0).toStringAsFixed(2),
+        record['gps'] ?? '',
       ]);
     }
 
@@ -323,59 +401,90 @@ class _SavedRecordsPageState extends State<SavedRecordsPage> {
   }
 
   void shareSelected() async {
-  List<List<dynamic>> rows = [
-    ['ID', 'Officer', 'Location', 'Date', 'Yield/Ha', 'Volume']
-  ];
+    List<List<dynamic>> rows = [
+      ['ID', 'Officer', 'Location', 'Date', 'Yield/Ha', 'Volume', 'GPS']
+    ];
 
-  for (int index in selectedIndices.isEmpty
-      ? List.generate(yieldBox.length, (i) => i)
-      : selectedIndices) {
-    final record = yieldBox.getAt(index);
-    rows.add([
-      record['idNumber'] ?? '',
-      record['officer'] ?? '',
-      record['location'] ?? '',
-      record['timestamp'] ?? '',
-      (record['yieldPerHa'] ?? 0).toStringAsFixed(2),
-      (record['volume'] ?? 0).toStringAsFixed(2),
-    ]);
+    for (int index in selectedIndices.isEmpty
+        ? List.generate(yieldBox.length, (i) => i)
+        : selectedIndices) {
+      final record = yieldBox.getAt(index);
+      rows.add([
+        record['idNumber'] ?? '',
+        record['officer'] ?? '',
+        record['location'] ?? '',
+        record['timestamp'] ?? '',
+        (record['yieldPerHa'] ?? 0).toStringAsFixed(2),
+        (record['volume'] ?? 0).toStringAsFixed(2),
+        record['gps'] ?? '',
+      ]);
+    }
+
+    final csv = const ListToCsvConverter().convert(rows);
+    final dir = await getExternalStorageDirectory();
+    final path = '${dir!.path}/yield_estimates_shared.csv';
+    final file = File(path);
+    await file.writeAsString(csv);
   }
-
-  final csv = const ListToCsvConverter().convert(rows);
-  final dir = await getExternalStorageDirectory();
-  final path = '${dir!.path}/yield_estimates_shared.csv';
-  final file = File(path);
-  await file.writeAsString(csv);
-
-  await Share.shareXFiles(
-    [XFile(path)],
-    text: 'Yield Estimates CSV attached.',
-    subject: 'Yield Estimates',
-  );
+  Future<void> shareCSV(String path) async {
+    final file = XFile(path);
+    await Share.shareXFiles(
+      [file],
+      text: 'Yield Estimates CSV attached.',
+      subject: 'Yield Estimates',
+    );
 }
-
-
-  void editId(int index) {
+  void editRecord(int index) {
     final record = Map<String, dynamic>.from(yieldBox.getAt(index));
-    final controller = TextEditingController(text: record['idNumber'] ?? '');
+
+    final idController = TextEditingController(text: record['idNumber'] ?? '');
+    final officerController = TextEditingController(text: record['officer'] ?? '');
+    final locationController = TextEditingController(text: record['location'] ?? '');
+    final areaController = TextEditingController(text: (record['area'] ?? '').toString());
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Edit ID'),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(hintText: 'Enter new ID'),
+        title: Text('Edit Record'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: idController,
+                decoration: InputDecoration(labelText: 'ID Number'),
+                maxLength: 50,
+              ),
+              TextField(
+                controller: officerController,
+                decoration: InputDecoration(labelText: 'Officer Name'),
+                maxLength: 50,
+              ),
+              TextField(
+                controller: locationController,
+                decoration: InputDecoration(labelText: 'Location'),
+                maxLength: 50,
+              ),
+              TextField(
+                controller: areaController,
+                decoration: InputDecoration(labelText: 'Farm Size (ha)'),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
+            onPressed: () => Navigator.pop(context),
             child: Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              record['idNumber'] = controller.text.trim();
+              record['idNumber'] = idController.text.trim();
+              record['officer'] = officerController.text.trim();
+              record['location'] = locationController.text.trim();
+              record['area'] = double.tryParse(areaController.text) ?? record['area'];
+
               yieldBox.putAt(index, record);
               Navigator.pop(context);
               setState(() {});
@@ -439,7 +548,7 @@ class _SavedRecordsPageState extends State<SavedRecordsPage> {
                     if (selectionMode) {
                       toggleSelection(index);
                     } else {
-                      editId(index);
+                      editRecord(index);
                     }
                   },
                   child: Card(
@@ -452,6 +561,7 @@ class _SavedRecordsPageState extends State<SavedRecordsPage> {
                         ListTile(title: Text('Date: ${record['timestamp']?.substring(0, 10) ?? ''}')),
                         ListTile(title: Text('Yield/Ha: ${record['yieldPerHa'].toStringAsFixed(2)} kg')),
                         ListTile(title: Text('Volume: ${record['volume'].toStringAsFixed(2)} kg')),
+                        ListTile(title: Text('GPS: ${record['gps'] ?? 'N/A'}')),
                       ],
                     ),
                   ),
