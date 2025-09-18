@@ -1,0 +1,140 @@
+{
+  "users": [
+    {
+      "id": "u-dashboard",
+      "username": "dashboard_admin",
+      "fullName": "Dashboard Admin",
+      "role": "dashboard_admin",
+      "passwordHash": "$2b$10$stVU6kWce3nM3987rWZle.eOE6T8T7gFja4tuT79SJhN0pTFmH0BG"
+    },
+    {
+      "id": "u-officer",
+      "username": "field_officer",
+      "fullName": "Field Officer",
+      "role": "field_officer",
+      "passwordHash": "$2b$10$JJtGp6FfUtmkZsRSUQVVUOXRNtl1m40FCObm4DWyDUuWDUjJQU.76"
+    }
+  ],
+  "records": [
+    {
+      "id": "rec-1",
+      "idNumber": "FARM001",
+      "officer": "Field Officer",
+      "location": "Society A",
+      "treesInSample": 25,
+      "totalPods": 320,
+      "area": 2.0,
+      "treeDensity": 625.0,
+      "podsPerTree": 12.8,
+      "yieldPerHa": 480.5,
+      "volume": 961.0,
+      "adjustmentPercentage": 10.0,
+      "lastYearProduction": 850.0,
+      "conditions": {
+        "Little or no pruning": true,
+        "Lack of weeding": false,
+        "High tree density": false,
+        "Pest and disease effect": true,
+        "Poor rainfall pattern": false
+      },
+      "timestamp": "2024-03-15T10:00:00.000Z",
+      "gps": "0.12345, 32.12345"
+    },
+    {
+      "id": "rec-2",
+      "idNumber": "FARM002",
+      "officer": "Field Officer",
+      "location": "Society B",
+      "treesInSample": 30,
+      "totalPods": 410,
+      "area": 1.5,
+      "treeDensity": 833.3,
+      "podsPerTree": 13.7,
+      "yieldPerHa": 512.4,
+      "volume": 768.6,
+      "adjustmentPercentage": 5.0,
+      "lastYearProduction": 700.0,
+      "conditions": {
+        "Little or no pruning": false,
+        "Lack of weeding": true,
+        "High tree density": false,
+        "Pest and disease effect": false,
+        "Poor rainfall pattern": false
+      },
+      "timestamp": "2024-04-02T12:30:00.000Z",
+      "gps": "0.54321, 32.54321"
+    },
+    {
+      "id": "rec-3",
+      "idNumber": "FARM003",
+      "officer": "Field Officer",
+      "location": "Society A",
+      "treesInSample": 20,
+      "totalPods": 250,
+      "area": 2.5,
+      "treeDensity": 500.0,
+      "podsPerTree": 12.5,
+      "yieldPerHa": 430.0,
+      "volume": 1075.0,
+      "adjustmentPercentage": 15.0,
+      "lastYearProduction": 900.0,
+      "conditions": {
+        "Little or no pruning": true,
+        "Lack of weeding": true,
+        "High tree density": false,
+        "Pest and disease effect": false,
+        "Poor rainfall pattern": true
+      },
+      "timestamp": "2024-05-10T09:15:00.000Z",
+      "gps": "0.22345, 32.22345"
+    },
+    {
+      "id": "rec-4",
+      "idNumber": "FARM004",
+      "officer": "Field Officer",
+      "location": "Society C",
+      "treesInSample": 35,
+      "totalPods": 500,
+      "area": 1.8,
+      "treeDensity": 972.2,
+      "podsPerTree": 14.3,
+      "yieldPerHa": 550.2,
+      "volume": 990.4,
+      "adjustmentPercentage": 5.0,
+      "lastYearProduction": 800.0,
+      "conditions": {
+        "Little or no pruning": false,
+        "Lack of weeding": false,
+        "High tree density": false,
+        "Pest and disease effect": false,
+        "Poor rainfall pattern": true
+      },
+      "timestamp": "2024-06-20T14:45:00.000Z",
+      "gps": "0.62345, 32.62345"
+    },
+    {
+      "id": "rec-5",
+      "idNumber": "FARM005",
+      "officer": "Field Officer",
+      "location": "Society B",
+      "treesInSample": 28,
+      "totalPods": 360,
+      "area": 2.2,
+      "treeDensity": 636.4,
+      "podsPerTree": 12.9,
+      "yieldPerHa": 495.3,
+      "volume": 1089.7,
+      "adjustmentPercentage": 10.0,
+      "lastYearProduction": 950.0,
+      "conditions": {
+        "Little or no pruning": false,
+        "Lack of weeding": false,
+        "High tree density": true,
+        "Pest and disease effect": false,
+        "Poor rainfall pattern": false
+      },
+      "timestamp": "2024-07-05T08:05:00.000Z",
+      "gps": "0.72345, 32.72345"
+    }
+  ]
+}
